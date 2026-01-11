@@ -1,0 +1,51 @@
+[package]
+name = "axoupdater"
+description = "Self-updater library for use with cargo-dist"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "../README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["axo_releases", "github_releases"]
+axo_releases = ["gazenot"]
+blocking = ["tokio"]
+github_releases = ["axoasset/remote"]
+cnb_releases = ["reqwest/json"]
+tls_native_roots = ["axoasset/tls-native-roots"]
+
+[dependencies]
+axoasset = { version = "1.4.0", default-features = false, features = ["json-serde"] }
+axoprocess = "0.2.0"
+axotag = { version = "0.3.0" }
+camino = { version = "1.1.10", features = ["serde1"] }
+homedir = "0.3.3"
+serde = "1.0.197"
+serde_json = "1.0.120"
+tempfile = "3.10.1"
+url = "2.5.7"
+
+# cnb releases
+reqwest = { version = "0.11.24", features = ["json"], optional = true }
+
+# axo releases
+gazenot = { version = "0.3.3", features = ["client_lib"], optional = true }
+
+# blocking API
+tokio = { version = "1.48.0", features = ["full"], optional = true }
+
+# errors
+miette = "7.2.0"
+thiserror = "2.0.0"
+
+[target.'cfg(windows)'.dependencies]
+self-replace = "1.5.0"
+
+[dev-dependencies]
+tokio = { version = "1.48.0", features = ["test-util"] }
+httpmock = "0.8.2"
+serial_test = "3.2.0"
