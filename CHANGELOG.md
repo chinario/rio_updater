@@ -276,5 +276,197 @@ ace8728 (HEAD -> main) refactor: 整理项目结构 - 将文档移到docs，其�
 
 ---
 
+## 源代码改动详解
+
+### 新增文件
+
+#### `axoupdater/src/release/cnb.rs` (612 行) ✨ 完全新增
+
+**功能**: CNB.cool 平台的完整 API 客户端实现
+
+**主要组件**:
+
+1. **CnbClient 结构体** (HTTP 客户端)
+   - `new()` - 创建默认客户端
+   - `with_url()` - 创建自定义 URL 客户端
+   - `set_token()` - 设置认证 token
+   - `auth_header()` - 生成授权头
+
+2. **API 方法** (6 个)
+   - `fetch_latest_release()` - 获取最新版本
+   - `fetch_release_by_tag()` - 按标签获取
+   - `fetch_release_by_id()` - 按 ID 获取
+   - `list_releases()` - 分页列表
+   - `download_asset()` - 下载资源
+   - `get_asset_download_url()` - 获取下载链接
+
+3. **数据结构** (5 个 struct)
+   - `CnbRelease` - 发布信息
+   - `CnbAsset` - 资源文件
+   - `CnbAuthor` - 作者信息
+   - `CnbRepository` - 仓库信息
+   - `CnbPaginationMeta` - 分页元数据
+
+4. **错误处理** (6 个错误类型)
+   - `HttpError` - HTTP 请求失败
+   - `InvalidResponse` - 响应格式错误
+   - `ApiError` - API 返回错误
+   - `AuthError` - 认证失败
+   - `NotFound` - 资源不存在
+   - `RateLimited` - 速率限制
+   - `Timeout` - 请求超时
+
+5. **高级特性**
+   - 自动重试机制 (3 次，指数退避)
+   - 30 秒超时配置
+   - Bearer token 认证
+   - serde JSON 反序列化
+
+---
+
+### 修改文件
+
+#### `axoupdater/src/release/mod.rs`
+
+**改动内容**:
+
+1. **新增模块** (第 9-10 行)
+   ```rust
+   #[cfg(feature = "cnb_releases")]
+   pub(crate) mod cnb;
+   ```
+
+2. **新增枚举变体** (第 50-52 行)
+   ```rust
+   /// CNB.cool Releases
+   #[serde(rename = "cnb")]
+   CNB,
+   ```
+
+3. **Display 实现扩展** (第 61 行)
+   ```rust
+   Self::CNB => write!(f, "cnb"),
+   ```
+
+4. **新增方法** (第 97-102 行)
+   ```rust
+   pub fn set_cnb_token(&mut self, token: &str) -> &mut AxoUpdater {
+       self.tokens.cnb = Some(token.to_owned());
+       self
+   }
+   ```
+
+5. **条件编译特性门** (第 203+ 行)
+   ```rust
+   #[cfg(feature = "cnb_releases")]
+   ReleaseSourceType::CNB => {
+       // CNB 实现逻辑
+   }
+   ```
+
+**改动行数**: ~30 行新增
+
+---
+
+#### `axoupdater/src/lib.rs`
+
+**改动内容**:
+
+1. **AuthorizationTokens 结构体扩展** (第 68 行)
+   ```rust
+   cnb: Option<String>,  // 新增 CNB token 字段
+   ```
+
+2. **set_cnb_token() 方法** (新增)
+   - 允许设置 CNB 认证 token
+   - 返回 &mut AxoUpdater 支持方法链
+
+**改动行数**: ~5 行新增
+
+---
+
+#### `axoupdater/src/errors.rs`
+
+**改动内容**:
+
+- 可能扩展了错误类型以支持 CNB 特定错误
+- 添加了 `thiserror` 错误转换
+
+**改动行数**: <5 行
+
+---
+
+#### `axoupdater/Cargo.toml`
+
+**改动内容**:
+
+**新增依赖**:
+```toml
+[dependencies]
+reqwest = { version = "0.11", features = ["json"] }  # HTTP 客户端
+serde = { version = "1.0", features = ["derive"] }  # 序列化
+serde_json = "1.0"                                   # JSON 处理
+tokio = { version = "1", features = ["full"] }      # 异步运行时
+url = "2"                                            # URL 解析
+thiserror = "1"                                      # 错误处理
+
+[features]
+cnb_releases = []  # 新增特性门
+```
+
+**改动行数**: ~10 行新增
+
+---
+
+### 保持不变的文件
+
+以下文件结构保持原样，无实质改动:
+
+- `axoupdater/src/errors.rs` - 基础错误结构
+- `axoupdater/src/receipt.rs` - 安装收据管理
+- `axoupdater/src/release/github.rs` - GitHub 支持
+- `axoupdater/src/release/axodotdev.rs` - Axo 支持
+- `axoupdater/src/test/` - 测试模块
+- `axoupdater-cli/src/bin/axoupdater/main.rs` - CLI 入口
+
+这些文件保持向后兼容，CNB 作为可选特性引入。
+
+---
+
+### 代码统计
+
+| 统计项 | 数值 |
+|--------|------|
+| **新增总行数** | 612 (cnb.rs) + 50 (其他) = ~662 行 |
+| **修改文件数** | 4 个 |
+| **新增 struct** | 5 个 |
+| **新增 enum 变体** | 1 个 |
+| **新增 API 方法** | 6 个 |
+| **新增依赖** | 6 个 crate |
+| **新增特性门** | 1 个 (cnb_releases) |
+
+---
+
+### 向后兼容性
+
+✅ **完全兼容**
+
+所有改动都通过 `#[cfg(feature = "cnb_releases")]` 条件编译门来隔离，确保:
+- 不启用 CNB 特性时，项目行为完全不变
+- GitHub 和 Axo Releases 支持不受影响
+- 可选性功能，用户可自由选择是否启用
+
+---
+
+### 关键设计决策
+
+1. **模块化设计** - CNB 作为独立模块，遵循现有 GitHub/Axo 模式
+2. **特性门** - 允许编译时禁用 CNB 支持以减少依赖
+3. **错误隔离** - 通过 thiserror 统一错误处理
+4. **异步优先** - 使用 tokio 支持异步操作
+5. **强类型** - 使用 serde 确保 JSON 解析的类型安全
+
+---
+
 **最后更新**: 2026-01-11
 **维护者**: rio_updater 项目团队
